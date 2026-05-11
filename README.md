@@ -1,6 +1,6 @@
-# DB-WUNet: Dual-Branch Wavelet U-Net for Low-Light Image Enhancement
+# LiteGL-Net
 
-This repository contains the source code, training scripts, and an API demo for the **DB-WUNet** model. The project structure has been refactored for scientific research and deployment.
+This repository contains the source code, training scripts, and an API demo for the model. The project structure has been refactored for scientific research and deployment.
 
 ## Directory Structure
 
