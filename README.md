@@ -1,0 +1,64 @@
+# DB-WUNet: Dual-Branch Wavelet U-Net for Low-Light Image Enhancement
+
+This repository contains the source code, training scripts, and an API demo for the **DB-WUNet** model. The project structure has been refactored for scientific research and deployment.
+
+## Directory Structure
+
+```text
+├── README.md
+├── requirements.txt
+├── ckpts/                          # Pre-trained models
+│   ├── lolv1.ckpt
+│   └── lolv2-real.ckpt
+├── scripts/                        # Shell scripts for execution
+│   └── run_train.sh                # Script to run training
+└── src/
+    ├── api/                        # FastAPI demo application
+    │   └── main.py
+    ├── data/                       # Dataset loading and processing
+    │   └── dataset.py
+    ├── models/                     # Model architecture and components
+    │   ├── components.py
+    │   └── model.py
+    ├── train/                      # Training logic and custom losses
+    │   └── loss.py
+    └── main.py                     # Main entrypoint (CLI for train/eval)
+```
+
+## Setup & Installation
+
+1. Create a virtual environment and install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Download your dataset (e.g., LOL dataset) and update the paths in the scripts or CLI arguments.
+
+## Usage
+
+### Training
+
+To train the model, you can either run the bash script:
+```bash
+bash scripts/run_train.sh
+```
+
+Or use the python CLI directly:
+```bash
+python -m src.main train --data_dir /path/to/dataset --batch_size 2 --epochs 200
+```
+
+### Evaluation
+
+To evaluate a checkpoint:
+```bash
+python -m src.main eval --ckpt ./ckpts/lolv2-real.ckpt --data_dir /path/to/dataset
+```
+
+### FastAPI Demo
+
+To run the local web server demo for inference:
+```bash
+uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+Then visit `http://localhost:8000/docs` to test the `/enhance` endpoint.
