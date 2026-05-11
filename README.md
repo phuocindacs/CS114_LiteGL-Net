@@ -29,6 +29,8 @@ This repository contains the source code, training scripts, and an API demo for 
 
 ## Setup & Installation
 
+**Prerequisites:** Python 3.12 (Recommended). Higher versions like Python 3.13 may cause compatibility issues with certain libraries.
+
 1. Create a virtual environment and install dependencies:
 ```bash
 pip install -r requirements.txt

@@ -103,7 +103,9 @@ async def enhance_image(file: UploadFile = File(...)):
         return Response(content=result_bytes, media_type="image/png")
         
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        print(f"❌ API Error: {traceback.format_exc()}")
+        return Response(content=f"Server Error: {str(e)}", status_code=500)
     
     finally:
         # Tự động dọn RAM/VRAM sau mỗi request (dù thành công hay lỗi)

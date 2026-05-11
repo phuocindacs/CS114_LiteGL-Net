@@ -191,13 +191,16 @@ if uploaded_file:
                 files = {"file": (uploaded_file.name, uploaded_file.read(), uploaded_file.type)}
                 response = requests.post(f"{api_url}/enhance", files=files, timeout=120)
 
-                if response.status_code == 200:
+                if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
                     st.session_state.output_bytes = response.content
                     st.session_state.output_filename = f"enhanced_{uploaded_file.name.rsplit('.', 1)[0]}.png"
                     st.success(f"✅ Hoàn tất! Kích thước ảnh gốc: {w}×{h}px")
                 else:
-                    err = response.json().get("error", "Lỗi không xác định")
-                    st.error(f"❌ Server lỗi: {err}")
+                    try:
+                        err_msg = response.json().get("error", response.text)
+                    except:
+                        err_msg = response.text
+                    st.error(f"❌ Server lỗi: {err_msg}")
 
             except requests.exceptions.ConnectionError:
                 st.error("❌ Không kết nối được với FastAPI server. Hãy kiểm tra server đang chạy chưa.")
