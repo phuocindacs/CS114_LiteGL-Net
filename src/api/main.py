@@ -1,6 +1,8 @@
 import os
 import io
+import gc
 import torch
+import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import Response
@@ -22,17 +24,28 @@ async def load_model():
         # Trong thực tế, bạn cần lưu ý về cấu trúc state_dict khi load checkpoint Pytorch Lightning.
         # model = DBWUNetLightning.load_from_checkpoint(CKPT_PATH, map_location=device)
         
-        # Placeholder cho việc load model (Do chưa setup đẩy đủ class Pytorch Lightning)
         model = DBWUNetLightning()
         try:
-            # Giả định checkpoint lưu trực tiếp state_dict
             checkpoint = torch.load(CKPT_PATH, map_location=device)
-            if 'state_dict' in checkpoint:
-                model.load_state_dict(checkpoint['state_dict'])
-            else:
-                model.load_state_dict(checkpoint)
+            state_dict = checkpoint.get('state_dict', checkpoint)
+            
+            # Xóa prefix thừa từ checkpoint (torch.compile tạo ra _orig_mod.)
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                # Bóc hết các prefix có thể có
+                for prefix in ["model._orig_mod.", "model.model.", "model.", "net.", "_orig_mod."]:
+                    if k.startswith(prefix):
+                        k = k[len(prefix):]
+                        break
+                new_state_dict[k] = v
+                
+            # Load thẳng vào mạng lõi (LightweightDualBranchUNet)
+            missing, unexpected = model.model.load_state_dict(new_state_dict, strict=False)
+            print(f"✅ Đã load weights. Missing: {len(missing)}, Unexpected: {len(unexpected)}")
+            if missing:
+                print(f"Missing keys (sample): {missing[:5]}")
         except Exception as e:
-            print(f"Cảnh báo khi load weights (Demo có thể chạy với random weights): {e}")
+            print(f"❌ LỖI KHI LOAD WEIGHTS (Đang chạy với random weights): {e}")
             
         model.to(device)
         model.eval()
@@ -48,27 +61,56 @@ async def enhance_image(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
+        orig_w, orig_h = image.size
+
+        # Giới hạn kích thước tối đa để tránh hết RAM
+        MAX_SIDE = 1024
+        if max(orig_w, orig_h) > MAX_SIDE:
+            scale = MAX_SIDE / max(orig_w, orig_h)
+            new_w = int(orig_w * scale)
+            new_h = int(orig_h * scale)
+            image = image.resize((new_w, new_h), Image.LANCZOS)
+            print(f"⚠️  Ảnh lớn ({orig_w}x{orig_h}), resize về {new_w}x{new_h} để tránh hết RAM.")
         
-        # Tiền xử lý (đảm bảo chia hết cho 16 hoặc một số cụ thể nếu model yêu cầu)
+        # Đảm bảo kích thước chia hết cho 16 (yêu cầu của DWT trong model)
         img_tensor = TF.to_tensor(image).unsqueeze(0).to(device)
+        _, _, H, W = img_tensor.shape
+        pad_h = (16 - H % 16) % 16
+        pad_w = (16 - W % 16) % 16
+        if pad_h > 0 or pad_w > 0:
+            img_tensor = F.pad(img_tensor, (0, pad_w, 0, pad_h), mode='reflect')
         
         # Suy luận
         with torch.no_grad():
             output_tensor = model(img_tensor)
+        
+        # Giải phóng tensor input ngay sau khi inference xong
+        del img_tensor
+        
+        # Trả về kích thước gốc
+        if pad_h > 0 or pad_w > 0:
+            output_tensor = output_tensor[:, :, :H, :W]
             
         # Hậu xử lý: chuyển tensor về PIL Image
-        output_tensor = output_tensor.squeeze(0).cpu()
-        output_image = TF.to_pil_image(output_tensor)
+        output_image = TF.to_pil_image(output_tensor.squeeze(0).cpu().clamp(0, 1))
+        del output_tensor
         
         # Chuyển đổi sang byte để trả về
         img_byte_arr = io.BytesIO()
         output_image.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
+        result_bytes = img_byte_arr.getvalue()
         
-        return Response(content=img_byte_arr, media_type="image/png")
+        return Response(content=result_bytes, media_type="image/png")
         
     except Exception as e:
         return {"error": str(e)}
+    
+    finally:
+        # Tự động dọn RAM/VRAM sau mỗi request (dù thành công hay lỗi)
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        print("🧹 Đã dọn RAM sau request.")
 
 @app.get("/")
 def root():

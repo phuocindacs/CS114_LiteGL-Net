@@ -55,10 +55,24 @@ To evaluate a checkpoint:
 python -m src.main eval --ckpt ./ckpts/lolv2-real.ckpt --data_dir /path/to/dataset
 ```
 
-### FastAPI Demo
+### FastAPI Backend
 
-To run the local web server demo for inference:
+To run the local inference API server:
 ```bash
 uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 Then visit `http://localhost:8000/docs` to test the `/enhance` endpoint.
+
+### Streamlit Frontend Demo
+
+After starting the FastAPI server, run the Streamlit UI in a separate terminal:
+```bash
+streamlit run app.py
+```
+The browser will open automatically at `http://localhost:8501`.
+
+The UI allows you to:
+- Upload a low-light image (JPG / PNG)
+- Send it to the FastAPI backend for enhancement
+- View the side-by-side before/after comparison
+- Download the enhanced image
