@@ -7,7 +7,7 @@ import torchvision.transforms.functional as TF
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import Response
 from PIL import Image
-from src.models.model import DBWUNetLightning
+from src.models.model import LightweightDualBranchUNet
 
 app = FastAPI(title="DB-WUNet Image Enhancement API")
 
@@ -24,7 +24,7 @@ async def load_model():
         # Trong thực tế, bạn cần lưu ý về cấu trúc state_dict khi load checkpoint Pytorch Lightning.
         # model = DBWUNetLightning.load_from_checkpoint(CKPT_PATH, map_location=device)
         
-        model = DBWUNetLightning()
+        model = LightweightDualBranchUNet(base_dim=18, num_heads=2)
         try:
             checkpoint = torch.load(CKPT_PATH, map_location=device)
             state_dict = checkpoint.get('state_dict', checkpoint)
@@ -40,7 +40,7 @@ async def load_model():
                 new_state_dict[k] = v
                 
             # Load thẳng vào mạng lõi (LightweightDualBranchUNet)
-            missing, unexpected = model.model.load_state_dict(new_state_dict, strict=False)
+            missing, unexpected = model.load_state_dict(new_state_dict, strict=False)
             print(f"✅ Đã load weights. Missing: {len(missing)}, Unexpected: {len(unexpected)}")
             if missing:
                 print(f"Missing keys (sample): {missing[:5]}")

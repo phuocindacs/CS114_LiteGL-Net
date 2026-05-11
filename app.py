@@ -7,7 +7,7 @@ import io
 # CẤU HÌNH TRANG
 # ==============================================================================
 st.set_page_config(
-    page_title="DB-WUNet | Low-Light Image Enhancer",
+    page_title="LiteGL-Net | Low-Light Image Enhancer",
     page_icon="✨",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -67,6 +67,17 @@ st.markdown("""
         margin-top: 0.4rem;
         letter-spacing: 0.05em;
         text-transform: uppercase;
+    }
+
+    .placeholder-box {
+        height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px dashed rgba(167,139,250,0.3);
+        border-radius: 12px;
+        color: #475569;
+        font-size: 1rem;
     }
 
     .metric-card {
@@ -137,13 +148,19 @@ with st.sidebar:
     3. Bấm **Enhance** và chờ kết quả
     """)
     st.markdown("---")
-    st.caption("DB-WUNet · Dual-Branch Wavelet U-Net")
+    st.caption("LiteGL-Net · Lightweight Global-Local Network")
 
 # ==============================================================================
 # NỘI DUNG CHÍNH
 # ==============================================================================
-st.markdown('<h1 class="main-title">✨ DB-WUNet Image Enhancer</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">Nâng sáng ảnh thiếu sáng bằng mô hình Dual-Branch Wavelet U-Net</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">✨ LiteGL-Net Image Enhancer</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">Nâng sáng ảnh thiếu sáng bằng mô hình LiteGL-Net</p>', unsafe_allow_html=True)
+
+# Dùng session_state để lưu ảnh output giữa các lần rerender
+if "output_bytes" not in st.session_state:
+    st.session_state.output_bytes = None
+if "output_filename" not in st.session_state:
+    st.session_state.output_filename = None
 
 uploaded_file = st.file_uploader(
     "Chọn ảnh thiếu sáng để nâng cấp",
@@ -151,29 +168,18 @@ uploaded_file = st.file_uploader(
     label_visibility="collapsed"
 )
 
+# Khi đổi file thì xóa kết quả cũ
+if uploaded_file is None:
+    st.session_state.output_bytes = None
+    st.session_state.output_filename = None
+
 if uploaded_file:
-    # Đọc ảnh gốc để hiển thị
     input_image = Image.open(uploaded_file).convert("RGB")
     w, h = input_image.size
 
-    col1, col2 = st.columns(2, gap="large")
-
-    with col1:
-        st.image(input_image, use_container_width=True)
-        st.markdown('<p class="image-label">📥 Ảnh gốc (Input)</p>', unsafe_allow_html=True)
-
-    with col2:
-        result_placeholder = st.empty()
-        result_placeholder.markdown(
-            '<div style="height:300px; display:flex; align-items:center; justify-content:center; '
-            'border: 2px dashed rgba(167,139,250,0.3); border-radius:12px; color:#475569;">'
-            '⬆ Bấm Enhance để xem kết quả</div>',
-            unsafe_allow_html=True
-        )
-        label_placeholder = st.empty()
-
     st.markdown("---")
 
+    # --- Nút Enhance ---
     btn_col, info_col = st.columns([1, 3])
     with btn_col:
         enhance_clicked = st.button("🚀 Enhance!", use_container_width=True)
@@ -181,36 +187,14 @@ if uploaded_file:
     if enhance_clicked:
         with st.spinner("⏳ Đang xử lý ảnh..."):
             try:
-                # Reset về đầu buffer trước khi gửi
                 uploaded_file.seek(0)
                 files = {"file": (uploaded_file.name, uploaded_file.read(), uploaded_file.type)}
                 response = requests.post(f"{api_url}/enhance", files=files, timeout=120)
 
                 if response.status_code == 200:
-                    # Nhận ảnh PNG trả về
-                    output_image = Image.open(io.BytesIO(response.content)).convert("RGB")
-
-                    with col2:
-                        result_placeholder.image(output_image, use_container_width=True)
-                        label_placeholder.markdown(
-                            '<p class="image-label">📤 Ảnh đã nâng sáng (Output)</p>',
-                            unsafe_allow_html=True
-                        )
-
-                    # Nút tải về
-                    buf = io.BytesIO()
-                    output_image.save(buf, format="PNG")
-                    with info_col:
-                        st.download_button(
-                            label="⬇️ Tải ảnh về",
-                            data=buf.getvalue(),
-                            file_name=f"enhanced_{uploaded_file.name.rsplit('.', 1)[0]}.png",
-                            mime="image/png",
-                            use_container_width=True
-                        )
-
+                    st.session_state.output_bytes = response.content
+                    st.session_state.output_filename = f"enhanced_{uploaded_file.name.rsplit('.', 1)[0]}.png"
                     st.success(f"✅ Hoàn tất! Kích thước ảnh gốc: {w}×{h}px")
-
                 else:
                     err = response.json().get("error", "Lỗi không xác định")
                     st.error(f"❌ Server lỗi: {err}")
@@ -221,6 +205,38 @@ if uploaded_file:
                 st.error("⏱️ Server xử lý quá lâu (timeout 120s). Thử ảnh nhỏ hơn.")
             except Exception as e:
                 st.error(f"❌ Lỗi: {e}")
+
+    # --- Nút tải về (hiện khi đã có kết quả) ---
+    if st.session_state.output_bytes is not None:
+        with info_col:
+            st.download_button(
+                label="⬇️ Tải ảnh về",
+                data=st.session_state.output_bytes,
+                file_name=st.session_state.output_filename,
+                mime="image/png",
+                use_container_width=True
+            )
+
+    st.markdown("---")
+
+    # --- Hiển thị ảnh hai cột ---
+    col1, col2 = st.columns(2, gap="large")
+
+    with col1:
+        st.image(input_image, use_container_width=True)
+        st.markdown('<p class="image-label">📥 Ảnh gốc (Input)</p>', unsafe_allow_html=True)
+
+    with col2:
+        if st.session_state.output_bytes is not None:
+            output_image = Image.open(io.BytesIO(st.session_state.output_bytes)).convert("RGB")
+            st.image(output_image, use_container_width=True)
+            st.markdown('<p class="image-label">📤 Ảnh đã nâng sáng (Output)</p>', unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<div class="placeholder-box">⬆ Bấm Enhance để xem kết quả</div>',
+                unsafe_allow_html=True
+            )
+
 else:
     st.markdown("""
     <div class="upload-box">

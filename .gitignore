@@ -46,4 +46,4 @@ venv.bak/
 # Project specific
 dbwunet (1).ipynb
 extracted_code.py
-ckpts/
+visualize/

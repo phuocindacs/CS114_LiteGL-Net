@@ -1,12 +1,13 @@
-# DB-WUNet: Dual-Branch Wavelet U-Net for Low-Light Image Enhancement
+# LiteGL-Net: Lightweight Global-Local Network for Low-Light Image Enhancement
 
-This repository contains the source code, training scripts, and an API demo for the **DB-WUNet** model. The project structure has been refactored for scientific research and deployment.
+This repository contains the source code, training scripts, and an API demo for the **LiteGL-Net** model. The project structure has been refactored for scientific research and deployment.
 
 ## Directory Structure
 
 ```text
 ├── README.md
 ├── requirements.txt
+├── app.py                          # Streamlit Demo
 ├── ckpts/                          # Pre-trained models
 │   ├── lolv1.ckpt
 │   └── lolv2-real.ckpt
@@ -21,7 +22,8 @@ This repository contains the source code, training scripts, and an API demo for 
     │   ├── components.py
     │   └── model.py
     ├── train/                      # Training logic and custom losses
-    │   └── loss.py
+    │   ├── loss.py
+    │   └── trainer.py              # PyTorch Lightning module
     └── main.py                     # Main entrypoint (CLI for train/eval)
 ```
 
