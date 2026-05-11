@@ -22,7 +22,7 @@ share/python-wheels/
 *.egg
 
 # Data
-data/
+/data/
 *.zip
 *.tar.gz
 
